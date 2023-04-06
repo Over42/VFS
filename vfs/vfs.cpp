@@ -1,7 +1,6 @@
 #include "vfs.h"
 
 #include <stdio.h>
-#include <filesystem>
 #include <vector>
 #include <iterator>
 // For testing
@@ -65,13 +64,6 @@ File* VFS::Create(const char* name)
 
 			std::lock_guard<std::mutex> lock(filesMetadata[name].rwMutex);
 			filesMetadata[name].WriteOnly = true;
-
-			// Create file
-			std::filesystem::path path(name);
-			auto folders = path.parent_path();
-			std::filesystem::create_directories(folders);
-			FILE* newFile = fopen(name, "w");
-			fclose(newFile);
 
 			std::lock_guard<std::mutex> pakLock(paksMetadata[unfilledPak].rwMutex);
 			// Create file header
@@ -157,9 +149,6 @@ size_t VFS::Write(File* f, char* buff, size_t len)
 		f->Size = writeLen;
 		std::vector<char>* pakBuffer = paksMetadata[unfilledPak].pakBuffer;
 		pakBuffer->resize(pakBuffer->size() + f->Size);
-		FILE* newFile = fopen(f->Path, "w");
-		fwrite(buff, sizeof(char), f->Size, newFile);
-		fclose(newFile);
 	}
 
 	if (writeLen != f->Size)
