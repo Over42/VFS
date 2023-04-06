@@ -19,9 +19,8 @@ struct PakFile
 {
 	char Format[4] = { "PAK" };
 	char Version = 0;
-	uint32_t ContentVersion = 0;
 	char Path[PATH_SIZE];
-	uint32_t NumEntries = 0;
+	uint32_t ContentVersion = 0;
 };
 
 struct PakMetadata
@@ -53,7 +52,6 @@ struct FileMetadata
 	char PakPath[PATH_SIZE];
 	bool ReadOnly = false;
 	bool WriteOnly = false;
-	uint32_t NumFiles = 0;
 	uint32_t Offset = 0;
 	std::mutex rwMutex;
 
@@ -62,7 +60,6 @@ struct FileMetadata
 		std::strncpy(PakPath, o.PakPath, sizeof(PakPath));
 		ReadOnly = o.ReadOnly;
 		WriteOnly = o.WriteOnly;
-		NumFiles = o.NumFiles;
 		Offset = o.Offset;
 		return *this;
 	}
@@ -84,7 +81,7 @@ public:
 private:
 	std::unordered_map<std::string, FileMetadata> filesMetadata;
 	std::unordered_map<std::string, PakMetadata> paksMetadata;
-	char unfilledPak[255];  // New files added here
+	char unfilledPak[PATH_SIZE];  // New files added here
 
 	File* ReadHeader(const char* name);
 };

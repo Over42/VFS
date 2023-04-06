@@ -77,13 +77,13 @@ void TestTask::Test_MultithreadedReadWrite(VFS* vfs)
 {
 	printf("\n===== Multithreaded test =====\n");
 
-	// Read same file
+	printf("=== Read same file ===\n");
 	char readBuff1[100] = {};
 	char readBuff2[100] = {};
 	std::thread reader1(Test_ReadFile, vfs, "Test_Files/File3.txt", readBuff1, sizeof(readBuff1));
 	std::thread reader2(Test_ReadFile, vfs, "Test_Files/File3.txt", readBuff2, sizeof(readBuff2));
 
-	// Write same file
+	printf("=== Write same file ===\n");
 	char writeBuff1[] = "File2 CONTENTS: thrd1!";
 	std::thread writer1(Test_WriteFile, vfs, "Test_Files/File2.txt", writeBuff1, sizeof(writeBuff1));
 	char writeBuff2[] = "File2 CONTENTS: thrd2!";
@@ -94,7 +94,7 @@ void TestTask::Test_MultithreadedReadWrite(VFS* vfs)
 	writer1.join();
 	writer2.join();
 
-	// Read and Write same file
+	printf("=== Read and Write same file ===\n");
 	char readBuff3[100] = {};
 	char writeBuff3[] = "File1 contents: Byeee";
 	std::thread reader3(Test_ReadFile, vfs, "Test_Files/File1.txt", readBuff3, sizeof(readBuff3));

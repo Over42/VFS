@@ -42,7 +42,7 @@ File* VFS::Create(const char* name)
 	bool fileExists = fileMetadata != filesMetadata.end();
 	if (fileExists)
 	{
-		std::lock_guard<std::mutex> lock(fileMetadata->second.rwMutex);
+		std::lock_guard<std::mutex> fileLock(fileMetadata->second.rwMutex);
 		if (fileMetadata->second.ReadOnly)
 		{
 			fprintf(stderr, "ERROR: File already opened in ReadOnly\n");
@@ -56,24 +56,23 @@ File* VFS::Create(const char* name)
 	{
 		if (unfilledPak[0] != '\0')
 		{
+			std::lock_guard<std::mutex> pakLock(paksMetadata[unfilledPak].rwMutex);
+			std::lock_guard<std::mutex> fileLock(filesMetadata[name].rwMutex);
+
 			// Add info to VFS
+			uint32_t offset = paksMetadata[unfilledPak].pakBuffer->size();
 			FileMetadata metadata = {};
 			std::strncpy(metadata.PakPath, unfilledPak, sizeof(metadata.PakPath));
-			metadata.NumFiles++;
+			metadata.WriteOnly = true;
+			metadata.Offset = offset;
 			filesMetadata[name] = metadata;
 
-			std::lock_guard<std::mutex> lock(filesMetadata[name].rwMutex);
-			filesMetadata[name].WriteOnly = true;
-
-			std::lock_guard<std::mutex> pakLock(paksMetadata[unfilledPak].rwMutex);
 			// Create file header
 			File* file = new File();
 			std::strncpy(file->Path, name, sizeof(file->Path));
 			file->Size = 0;
-			uint32_t offset = paksMetadata[unfilledPak].pakBuffer->size();
 			file->Offset = offset;
-			filesMetadata[name].Offset = offset;
-			
+
 			// Add to Pak buffer
 			std::vector<char>* pakBuffer = paksMetadata[unfilledPak].pakBuffer;
 			pakBuffer->reserve(sizeof(File));
@@ -188,7 +187,6 @@ void VFS::PackFiles(const char* pakPath, const char* filePaths[], size_t fileCou
 
 	PakFile pakHeader = {};
 	std::strncpy(pakHeader.Path, pakPath, sizeof(pakHeader.Path));
-	pakHeader.NumEntries = 0;
 	pakHeader.Version = (char)FILE_VERSION;
 	pakHeader.ContentVersion = contentVersion;
 	buffer.insert(buffer.end(), (char*)&pakHeader, (char*)&pakHeader + sizeof(pakHeader));
@@ -217,11 +215,8 @@ void VFS::PackFiles(const char* pakPath, const char* filePaths[], size_t fileCou
 			// Add info to VFS
 			FileMetadata fileMetadata = {};
 			std::strncpy(fileMetadata.PakPath, pakPath, sizeof(fileMetadata.PakPath));
-			fileMetadata.NumFiles++;
 			fileMetadata.Offset = offset;
 			filesMetadata[filePaths[i]] = fileMetadata;
-
-			pakHeader.NumEntries++;
 
 			fclose(fp);
 		}
@@ -236,7 +231,7 @@ void VFS::PackFiles(const char* pakPath, const char* filePaths[], size_t fileCou
 	fclose(pakFile);
 	printf("Pak created successfully\n");
 
-	if (pakHeader.NumEntries < MAX_FILES_IN_PACK)
+	if (fileCount < MAX_FILES_IN_PACK)
 	{
 		strncpy(unfilledPak, pakHeader.Path, sizeof(unfilledPak));
 	}
