@@ -84,6 +84,7 @@ private:
 	char unfilledPak[PATH_SIZE];  // New files added here
 
 	File* ReadHeader(const char* name);
+	void AddFileToVFS(const char* fileName, const char* pakName, uint32_t offset);
 };
 
 }

@@ -59,13 +59,9 @@ File* VFS::Create(const char* name)
 			std::lock_guard<std::mutex> pakLock(paksMetadata[unfilledPak].rwMutex);
 			std::lock_guard<std::mutex> fileLock(filesMetadata[name].rwMutex);
 
-			// Add info to VFS
 			uint32_t offset = paksMetadata[unfilledPak].pakBuffer->size();
-			FileMetadata metadata = {};
-			std::strncpy(metadata.PakPath, unfilledPak, sizeof(metadata.PakPath));
-			metadata.WriteOnly = true;
-			metadata.Offset = offset;
-			filesMetadata[name] = metadata;
+			AddFileToVFS(name, unfilledPak, offset);
+			filesMetadata[name].WriteOnly = true;
 
 			// Create file header
 			File* file = new File();
@@ -164,8 +160,7 @@ size_t VFS::Write(File* f, char* buff, size_t len)
 
 	char* pakPath = filesMetadata.find(f->Path)->second.PakPath;
 	uint32_t offset = f->Offset + sizeof(File);
-	auto pakMetadata = paksMetadata.find(pakPath);
-	char* writeBuffer = pakMetadata->second.pakBuffer->data();
+	char* writeBuffer = paksMetadata.find(pakPath)->second.pakBuffer->data();
 	char* dst = &(writeBuffer[offset]);
 	memcpy(dst, buff, f->Size);
 	return f->Size;
@@ -179,6 +174,14 @@ void VFS::Close(File* f)
 		filesMetadata.find(f->Path)->second.WriteOnly = false;
 		delete f;
 	}
+}
+
+void VFS::AddFileToVFS(const char* fileName, const char* pakName, uint32_t offset)
+{
+	FileMetadata metadata = {};
+	std::strncpy(metadata.PakPath, pakName, sizeof(metadata.PakPath));
+	metadata.Offset = offset;
+	filesMetadata[fileName] = metadata;
 }
 
 void VFS::PackFiles(const char* pakPath, const char* filePaths[], size_t fileCount, int contentVersion)
@@ -197,13 +200,14 @@ void VFS::PackFiles(const char* pakPath, const char* filePaths[], size_t fileCou
 		if (fp)
 		{
 			// Create file header
-			File fileHeader = {};
 			fseek(fp, 0, SEEK_END);
-			fileHeader.Size = (uint32_t)ftell(fp);
+			uint32_t size = (uint32_t)ftell(fp);
 			fseek(fp, 0, SEEK_SET);
-			auto offset = (uint32_t)buffer.size();
-			fileHeader.Offset = offset;
+			uint32_t offset = buffer.size();
+			File fileHeader = {};
 			std::strncpy(fileHeader.Path, filePaths[i], sizeof(fileHeader.Path));
+			fileHeader.Size = size;
+			fileHeader.Offset = offset;
 			buffer.insert(buffer.end(), (char*)&fileHeader, (char*)&fileHeader + sizeof(fileHeader));
 
 			// Read file data in memory
@@ -212,11 +216,7 @@ void VFS::PackFiles(const char* pakPath, const char* filePaths[], size_t fileCou
 			fread(fileData.data(), sizeof(char), fileHeader.Size, fp);
 			buffer.insert(buffer.end(), fileData.begin(), fileData.end());
 
-			// Add info to VFS
-			FileMetadata fileMetadata = {};
-			std::strncpy(fileMetadata.PakPath, pakPath, sizeof(fileMetadata.PakPath));
-			fileMetadata.Offset = offset;
-			filesMetadata[filePaths[i]] = fileMetadata;
+			AddFileToVFS(filePaths[i], pakPath, offset);
 
 			fclose(fp);
 		}
